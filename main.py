@@ -14,29 +14,29 @@ else:
     thread_count = 1
 
 pool = Pool(thread_count)
-folders_dict = Folders()
-files_dict = Files()
+folders_dict = {}
+files_dict = {}
 
 
 def scanning(directory):
     for root, dirs, files in walk(directory):
         for dir_name in dirs:
-            folders_dict.folders[root + '\\' + dir_name] = Folder()
+            folders_dict[root + '\\' + dir_name] = Folder()
             if root != directory:
-                folders_dict.folders[root + '\\' + dir_name].dir_name = root
+                folders_dict[root + '\\' + dir_name].dir_name = root
         for file_name in files:
-            files_dict.files[root + '\\' + file_name] = File()
+            files_dict[root + '\\' + file_name] = File()
 
 
 def generation_hashes(directory, format):
     if format == 'normal':
         print('Создание хэша файлов')
-        results = tqdm(pool.imap_unordered(get_file_info, files_dict.files.keys()), total=len(files_dict.files))
+        results = tqdm(pool.imap_unordered(get_file_info, files_dict.keys()), total=len(files_dict))
     else:
-        results = pool.map(get_file_info, files_dict.files.keys())
+        results = pool.map(get_file_info, files_dict.keys())
 
     for file, info in results:
-        files_dict.files[file] = info
+        files_dict[file] = info
         if info.dir_name != directory:
             update_dir_info(info)
     del(results)
@@ -44,7 +44,7 @@ def generation_hashes(directory, format):
     if format == 'normal':
         print('Создание хэша папок')
 
-    for key, info in reversed(folders_dict.folders.items()):
+    for key, info in reversed(folders_dict.items()):
         if info.dir_name != '':
             update_dir_hash(info.dir_name, info)
 
@@ -66,28 +66,28 @@ def get_file_info(file):
 
 
 def update_dir_info(info):
-    folders_dict.folders[info.dir_name].size += info.size
-    folders_dict.folders[info.dir_name].hash.append(info.sha512)
+    folders_dict[info.dir_name].size += info.size
+    folders_dict[info.dir_name].hash.append(info.sha512)
 
 
 def update_dir_hash(dir_name, info):
     info.hash.sort()
-    folders_dict.folders[dir_name].hash.append(hashlib.sha512(b''.join(info.hash)).digest())
-    folders_dict.folders[dir_name].size += info.size
+    folders_dict[dir_name].hash.append(hashlib.sha512(b''.join(info.hash)).digest())
+    folders_dict[dir_name].size += info.size
 
 
 def update_dir_hash_to_sha512():
-    for key, info in folders_dict.folders.items():
-        if folders_dict.folders[key].sha512 != b'':
+    for key, info in folders_dict.items():
+        if folders_dict[key].sha512 != b'':
             continue
         info.hash.sort()
-        folders_dict.folders[key].sha512 = hashlib.sha512(b''.join(info.hash)).digest()
+        folders_dict[key].sha512 = hashlib.sha512(b''.join(info.hash)).digest()
 
 
 def finder(format):
     temp = {}
     sha512size_list = []
-    for dir_name, info in folders_dict.folders.items():
+    for dir_name, info in folders_dict.items():
         key = info.sha512.hex()+'-'+str(info.size)
         if not key in temp:
             temp[key] = []
