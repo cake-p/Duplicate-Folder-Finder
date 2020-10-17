@@ -1,9 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 
-a = Analysis(['main.py'],
+a = Analysis(['main.py', 'classes.py'],
              binaries=[],
-             datas=[('classes.py',)],
+             datas=[],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
