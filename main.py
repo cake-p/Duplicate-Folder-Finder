@@ -92,9 +92,19 @@ def finder(format):
         if not key in temp:
             temp[key] = []
         temp[key].append(dir_name)
-    for key, value in temp.items():
-        if len(value) > 1:
-            sha512size_list.append((int(key.split('-')[1]), tuple(value)))
+    for key, temp_data in temp.items():
+        if len(temp_data) > 1:
+            folders = tuple(temp_data)
+            i = 0
+            for data in sha512size_list:
+                if len(folders) != len(data[1]):
+                    continue
+                for name in data[1]:
+                    for folder in folders:
+                        if folder.find(name) != -1:
+                            i += 1
+            if len(folders) != i:
+                sha512size_list.append((int(key.split('-')[1]), tuple(temp_data)))
     sha512size_list = sorted(sha512size_list, reverse=True)
     data = json.dumps(sha512size_list)
     with open('data.json', 'w') as f:
