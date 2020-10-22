@@ -99,6 +99,7 @@ def update_dir_hash_to_sha512():
                 continue
             folders_dict[dir_index[:-1]].sha512 = hashlib.sha512(b''.join(folder.hash)).digest()
             done = False
+        if done:
             break
 
 def finder(format):
