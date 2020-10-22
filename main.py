@@ -16,67 +16,59 @@ else:
 pool = Pool(thread_count)
 folders_dict = {}
 files_dict = {}
+directory = ''
 
 
-def scanning(directory):
-    for root, dirs, files in walk(directory):
+def scanning():
+    len_directory = len(directory)
+    for dir, dirs, files in walk(directory):
         for dir_name in dirs:
-            folders_dict[root + '\\' + dir_name] = Folder()
-            if root != directory:
-                folders_dict[root + '\\' + dir_name].dir_name = root
+            folders_dict[(dir + '\\' + dir_name)[len_directory:]] = Folder()
         for file_name in files:
-            files_dict[root + '\\' + file_name] = File()
+            files_dict[(dir + '\\' + file_name)[len_directory:]] = File()
 
 
-def generation_hashes(directory, format):
+def generation_hashes(format):
     if format == 'normal':
         print('Создание хэша файлов')
         results = tqdm(pool.imap_unordered(get_file_info, files_dict.keys()), total=len(files_dict))
     else:
-        results = pool.map(get_file_info, files_dict.keys())
+        results = pool.imap_unordered(get_file_info, files_dict.keys())
 
-    for file, info in results:
-        files_dict[file] = info
-        if info.dir_name != directory:
-            update_dir_info(info)
+    for key in results:
+        dir_name = key.rsplit('\\',1)[0]
+        if dir_name != '':
+            update_folder_info(key, dir_name)
     del(results)
 
     if format == 'normal':
         print('Создание хэша папок')
 
     for key, info in reversed(folders_dict.items()):
-        if info.dir_name != '':
-            update_dir_hash(info.dir_name, info)
+        dir_name = key.rsplit('\\',1)[0]
+        if dir_name != '':
+            update_folder_hash(dir_name, info)
 
 
-def get_file_info(file):
-    names = file.rsplit('\\', 1)
-    with open(file, 'rb') as f:
-        stat = fstat(f.fileno())
-        info = File(
-            dir_name=names[0],
-            file_name=names[1],
-            sha512=hashlib.sha512(f.read()).digest(),
-            size=stat.st_size,
-            atime=int(stat.st_atime),
-            mtime=int(stat.st_mtime),
-            ctime=int(stat.st_ctime),
-        )
-    return file, info
+def get_file_info(key):
+    with open(directory+key, 'rb') as f:
+        files_dict[key].sha512 = hashlib.sha512(f.read()).digest()
+        files_dict[key].size = fstat(f.fileno()).st_size
+    return key
 
 
-def update_dir_info(info):
-    folders_dict[info.dir_name].size += info.size
-    folders_dict[info.dir_name].hash.append(info.sha512)
+def update_folder_info(key, dir_name):
+    folders_dict[dir_name].size += files_dict[key].size
+    folders_dict[dir_name].hash.append(files_dict[key].sha512)
 
 
-def update_dir_hash(dir_name, info):
+def update_folder_hash(dir_name, info):
     info.hash.sort()
     folders_dict[dir_name].hash.append(hashlib.sha512(b''.join(info.hash)).digest())
     folders_dict[dir_name].size += info.size
 
 
-def update_dir_hash_to_sha512():
+def update_folder_hash_to_sha512():
     for key, info in folders_dict.items():
         if folders_dict[key].sha512 != b'':
             continue
@@ -97,27 +89,30 @@ def finder(format):
             folders = tuple(temp_data)
             i = 0
             for data in sha512size_list:
-                if len(folders) != len(data[1]):
+                if len(folders) != len(data['folders']):
                     continue
-                for name in data[1]:
+                for name in data['folders']:
                     for folder in folders:
                         if folder.find(name) != -1:
                             i += 1
             if len(folders) != i:
-                sha512size_list.append((int(key.split('-')[1]), tuple(temp_data)))
-    sha512size_list = sorted(sha512size_list, reverse=True)
+                sha512size_list.append({
+                    'size': int(key.split('-')[1]),
+                    'folders': temp_data,
+                })
+    sha512size_list = sorted(sha512size_list, key=lambda i: i['size'], reverse=True)
     data = json.dumps(sha512size_list)
     with open('data.json', 'w') as f:
         f.write(data)
 
     if format == 'json':
         print(data)
-    else:
+    elif format == 'normal':
         i = 0
         for info in sha512size_list:
             i += 1
             print('Дубликаты #' + str(i) + ':')
-            size = info[0]
+            size = info['size']
             if size < 1024:
                 size = str(size) + ' байт'
             elif size < 1024**2:
@@ -127,7 +122,7 @@ def finder(format):
             elif size < 1024**4:
                 size = str(round(size/1024**3, 2)) + ' ГБ'
             print('Размер: ' + size)
-            for folder in info[1]:
+            for folder in info['folders']:
                 print(folder)
             print()
 
@@ -145,12 +140,13 @@ if __name__ == "__main__":
         default='normal',
     )
     FLAGS, unparsed = parser.parse_known_args()
+    directory = FLAGS.dir
 
     if FLAGS.format == 'normal':
         print('Сканирование: ' + FLAGS.dir)
-    scanning(FLAGS.dir)
-    generation_hashes(FLAGS.dir, FLAGS.format)
-    update_dir_hash_to_sha512()
+    scanning()
+    generation_hashes(FLAGS.format)
+    update_folder_hash_to_sha512()
 
     if FLAGS.format == 'normal':
         print('Поиск дубликатов')
