@@ -83,7 +83,7 @@ def finder(format):
         key = info.sha512.hex()+'-'+str(info.size)
         if not key in temp:
             temp[key] = []
-        temp[key].append(dir_name)
+        temp[key].append(directory+dir_name)
     for key, temp_data in temp.items():
         if len(temp_data) > 1:
             folders = tuple(temp_data)
