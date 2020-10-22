@@ -4,19 +4,16 @@ from typing import List
 
 @dataclass
 class File:
-    dir_name: str = ''
-    file_name: str = ''
-    sha512: bytes(512) = b''
+    dir_index: List[int] = field(default_factory=list)
+    file_index: int = 0
+    sha512: bytes = b''
     size: int = 0
-    atime: int = 0
-    mtime: int = 0
-    ctime: int = 0
 
 
 @dataclass
 class Folder:
-    dir_name: str = ''
-    folder_name: str = ''
-    sha512: bytes(512) = b''
+    dir_index: List[int] = field(default_factory=list)
+    folder_index: int = 0
+    sha512: bytes = b''
     size: int = 0
     hash: List[bytes] = field(default_factory=list)
