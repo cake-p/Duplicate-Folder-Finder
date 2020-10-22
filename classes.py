@@ -12,8 +12,6 @@ class File:
 
 @dataclass
 class Folder:
-    dir_index: List[int] = field(default_factory=list)
-    folder_index: int = 0
     sha512: bytes = b''
     size: int = 0
     hash: List[bytes] = field(default_factory=list)
