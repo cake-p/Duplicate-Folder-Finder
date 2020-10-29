@@ -19,6 +19,7 @@ files_dict = {}
 directory = ''
 
 
+# Сканирование папок для дальнейшего хэширования файлов и папок
 def scanning():
     len_directory = len(directory)
     for dir, dirs, files in walk(directory):
@@ -28,6 +29,7 @@ def scanning():
             files_dict[(dir + '\\' + file_name)[len_directory:]] = File()
 
 
+# Создание хэшей
 def generation_hashes(format):
     if format == 'normal':
         print('Создание хэша файлов')
@@ -50,13 +52,20 @@ def generation_hashes(format):
             update_folder_hash(dir_name, info)
 
 
+# Получение информации о файле (размер и хэш)
 def get_file_info(key):
-    with open(directory+key, 'rb') as f:
-        files_dict[key].sha512 = hashlib.sha512(f.read()).digest()
-        files_dict[key].size = fstat(f.fileno()).st_size
+    try:
+        with open(directory+key, 'rb') as f:
+            files_dict[key].sha512 = hashlib.sha512(f.read()).digest()
+            files_dict[key].size = fstat(f.fileno()).st_size
+    except PermissionError:
+        files_dict[key].sha512 = hashlib.sha512(key.rsplit('\\',1)[1].encode()).digest()
+        files_dict[key].size = len(key.rsplit('\\',1)[1])
+
     return key
 
 
+# Обновление данных папки
 def update_folder_info(key, dir_name):
     folders_dict[dir_name].size += files_dict[key].size
     folders_dict[dir_name].hash.append(files_dict[key].sha512)
@@ -76,6 +85,7 @@ def update_folder_hash_to_sha512():
         folders_dict[key].sha512 = hashlib.sha512(b''.join(info.hash)).digest()
 
 
+# Сравнение папок по хэшу и размеру
 def finder(format):
     temp = {}
     sha512size_list = []
