@@ -21,8 +21,12 @@ directory = ''
 
 # Сканирование папок для дальнейшего хэширования файлов и папок
 def scanning():
-    len_directory = len(directory)
-    for dir, dirs, files in walk(directory):
+    if directory[-1] == ':':
+        temp = directory + '\\'
+    else:
+        temp = directory
+    len_directory = len(directory) + 1
+    for dir, dirs, files in walk(temp):
         for dir_name in dirs:
             folders_dict[(dir + '\\' + dir_name)[len_directory:]] = Folder()
         for file_name in files:
@@ -38,9 +42,9 @@ def generation_hashes(format):
         results = pool.imap_unordered(get_file_info, files_dict.keys())
 
     for key in results:
-        dir_name = key.rsplit('\\',1)[0]
-        if dir_name != '':
-            update_folder_info(key, dir_name)
+        key_rspilt = key.rsplit('\\',1)
+        if len(key_rspilt) != 1 and key_rspilt[0] != '':
+            update_folder_info(key, key_rspilt[0])
     del(results)
 
     if format == 'normal':
@@ -55,13 +59,15 @@ def generation_hashes(format):
 # Получение информации о файле (размер и хэш)
 def get_file_info(key):
     try:
-        with open(directory+key, 'rb') as f:
+        with open(directory+'\\'+key, 'rb') as f:
             files_dict[key].sha512 = hashlib.sha512(f.read()).digest()
             files_dict[key].size = fstat(f.fileno()).st_size
-    except PermissionError:
-        files_dict[key].sha512 = hashlib.sha512(key.rsplit('\\',1)[1].encode()).digest()
-        files_dict[key].size = len(key.rsplit('\\',1)[1])
-
+    except OSError as e:
+        if e.errno == 13:
+            files_dict[key].sha512 = hashlib.sha512(key.rsplit('\\',1)[-1].encode()).digest()
+            files_dict[key].size = len(key.rsplit('\\',1)[-1])
+        else:
+            raise e
     return key
 
 
@@ -93,7 +99,8 @@ def finder(format):
         key = info.sha512.hex()+'-'+str(info.size)
         if not key in temp:
             temp[key] = []
-        temp[key].append(directory+dir_name)
+        temp[key].append(directory[4:]+dir_name)
+    # Исправить производительность цикла
     for key, temp_data in temp.items():
         if len(temp_data) > 1:
             folders = tuple(temp_data)
@@ -150,7 +157,10 @@ if __name__ == "__main__":
         default='normal',
     )
     FLAGS, unparsed = parser.parse_known_args()
-    directory = FLAGS.dir
+    if FLAGS.dir[-1] in ('\\', '/'):
+        directory = '\\\\?\\' + FLAGS.dir[:-1]
+    else:
+        directory = '\\\\?\\' + FLAGS.dir
 
     if FLAGS.format == 'normal':
         print('Сканирование: ' + FLAGS.dir)
